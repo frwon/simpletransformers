@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 from scipy.stats import pearsonr
+from scipy.special import softmax
 from seqeval.metrics import precision_score, recall_score, f1_score, classification_report
 from tensorboardX import SummaryWriter
 from tqdm.auto import trange, tqdm
@@ -654,13 +655,27 @@ class NERModel:
                 out_label_ids = np.append(out_label_ids, inputs["labels"].detach().cpu().numpy(), axis=0)
 
         eval_loss = eval_loss / nb_eval_steps
+
+        # model_outputs_shape = (Number_of_sentences, sentence_length, number_of_labels)
         model_outputs = preds
+
+        # For each words in each sentence, find the index of the largest values, i.e the most likely tag 
         preds = np.argmax(preds, axis=2)
 
+        # Dictionary: {Key: Label_id, Value: Label}
         label_map = {i: label for i, label in enumerate(self.labels)}
-
+        
+        # .....
         out_label_list = [[] for _ in range(out_label_ids.shape[0])]
+
         preds_list = [[] for _ in range(out_label_ids.shape[0])]
+
+
+        # List of indicies in 'out_label_ids' that represent words
+        relevantindicies = []
+
+        # List of uncertainties for each word. Uncertainties are the likelihood of each tag
+        uncertainties = []
 
         for i in range(out_label_ids.shape[0]):
             for j in range(out_label_ids.shape[1]):
@@ -668,12 +683,22 @@ class NERModel:
                     out_label_list[i].append(label_map[out_label_ids[i][j]])
                     preds_list[i].append(label_map[preds[i][j]])
 
+                    # Append idx relevantindicies list
+                    relevantindicies.append(j)
+
+        ## Get the uncertainties for the relevant words
+        for idx in relevantindicies:
+            modelOutput = model_outputs[0][idx]
+            uncertainty = softmax(modelOutput)
+            uncertainties.append(uncertainty)
+            
+
         preds = [
             [{word: preds_list[i][j]} for j, word in enumerate(sentence.split()[: len(preds_list[i])])]
             for i, sentence in enumerate(to_predict)
         ]
 
-        return preds, model_outputs
+        return preds, model_outputs, uncertainties
 
     def load_and_cache_examples(self, data, evaluate=False, no_cache=False, to_predict=None):
         """

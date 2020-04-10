@@ -685,27 +685,34 @@ class NERModel:
 
                     # Append idx relevantindicies list
                     relevantindicies.append(j)
-
+        
         ## Get the uncertainties for the relevant words
         for idx in relevantindicies:
             modelOutput = model_outputs[0][idx]
             uncertainty = softmax(modelOutput)
             uncertainties.append(uncertainty)
-                                                        
+
+    
+        # Get length of all sentences
         sentencesLength = []
-        for i, sentence in enumerate(to_predict):                                               
+        for i, sentence in enumerate(to_predict):
             sentencesLength.append(len(preds_list[i]))
-        
+
+        # Copy of array with all uncertainties
+        AllUnc = uncertainties
+
+        # Split the certainties into an array of certainties for each sentence
         uncertaintySenSplit = []
         for l in sentencesLength:
-            uncertaintySenSplit.append(uncertainties[0:l])
-            del uncertainties[:l]                                                
+            uncertaintySenSplit.append(AllUnc[0:l])
+            del AllUnc[:l]
+
 
         preds = [
             [{word: preds_list[i][j]} for j, word in enumerate(sentence.split()[: len(preds_list[i])])]
             for i, sentence in enumerate(to_predict)
         ]
-
+    
         return preds, model_outputs, uncertaintySenSplit
 
     def load_and_cache_examples(self, data, evaluate=False, no_cache=False, to_predict=None):

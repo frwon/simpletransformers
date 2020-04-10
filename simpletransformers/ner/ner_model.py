@@ -686,34 +686,45 @@ class NERModel:
                     # Append idx relevantindicies list
                     relevantindicies.append(j)
         
-        ## Get the uncertainties for the relevant words
-        for idx in relevantindicies:
-            modelOutput = model_outputs[0][idx]
-            uncertainty = softmax(modelOutput)
-            uncertainties.append(uncertainty)
 
-    
         # Get length of all sentences
         sentencesLength = []
         for i, sentence in enumerate(to_predict):
             sentencesLength.append(len(preds_list[i]))
 
-        # Copy of array with all uncertainties
-        AllUnc = uncertainties
+
+        # Make a copy of relevant indicies:
+        AllIdx = relevantindicies
 
         # Split the certainties into an array of certainties for each sentence
-        uncertaintySenSplit = []
+        relIdxSenSplit = []
         for l in sentencesLength:
-            uncertaintySenSplit.append(AllUnc[0:l])
-            del AllUnc[:l]
+            relIdxSenSplit.append(AllIdx[0:l])
+            del AllIdx[:l]
 
 
+        # Iterate over each sentence in sentence output 
+        for i in range(len(sentencesLength)):
+            
+            # List to store uncertainties for a given sentence
+            senUncertainty = []
+
+            for j in range(sentencesLength[i]):
+
+                ## Get the uncertainties for the relevant words
+                modelOutput = model_outputs[i][relIdxSenSplit[i][j]]
+                uncertainty = softmax(modelOutput)
+                senUncertainty.append(uncertainty)
+            
+            uncertainties.append(senUncertainty)
+        
+    
         preds = [
             [{word: preds_list[i][j]} for j, word in enumerate(sentence.split()[: len(preds_list[i])])]
             for i, sentence in enumerate(to_predict)
         ]
     
-        return preds, model_outputs, uncertaintySenSplit
+        return preds, model_outputs, uncertainties
 
     def load_and_cache_examples(self, data, evaluate=False, no_cache=False, to_predict=None):
         """
